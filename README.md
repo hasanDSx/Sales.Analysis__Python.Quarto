@@ -1,5 +1,3 @@
-# Sales-Analysis-Python-Quarto-Project
-________________________________________
 The analysis explored:
 
  • Annual revenue trends with shaded line charts
