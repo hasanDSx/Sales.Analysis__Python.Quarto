@@ -1,0 +1,294 @@
+---
+title: "Sales Analysis Report"
+format:
+  pdf:
+    include-in-header:
+      text: |
+        \usepackage{etoolbox}
+        \AtBeginEnvironment{Shaded}{\hspace{-1em}}
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    colorlinks: true
+    geometry: margin=1in
+execute:
+  echo: true
+  warning: false
+---
+
+
+\newpage
+## Setup the environment
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+```
+
+### Load and Inspect Data
+```{python}
+# not cleand
+sales_db=pd.read_csv(r'E:\_Projects\Python\1. Walmart Sales Analysis\Dataset\walmart.csv')
+
+# cleaned data
+sales=pd.read_pickle(r'E:\_Projects\Python\1. Walmart Sales Analysis\Dataset\sales_cleaned_data.pkl')
+```
+
+## Prepare the Data
+### Data Cleaning
+```{python}
+sales_db.shape
+```
+
+```{python}
+sales_db.info()
+```
+
+```{python}
+sales_db.head()
+```
+
+```{python}
+sales_db['date'] = pd.to_datetime(sales_db['date'])
+```
+
+```{python}
+sales_db['unit_price'] = sales_db['unit_price'].str.replace('$', '').astype(float)
+```
+
+```{python}
+sales_db.duplicated().sum()
+```
+
+```{python}
+sales_db.drop_duplicates(inplace = True)
+sales_db
+```
+
+```{python}
+sales_db.isna().sum()
+```
+
+```{python}
+sales_db.dropna(inplace = True)
+```
+
+### Add Columns
+```{python}
+sales_db['total'] = sales_db['unit_price'] * sales_db['quantity']
+```
+
+```{python}
+sales_db['year'] = sales_db['date'].dt.year
+```
+
+```{python}
+sales_db['year'] = sales_db['year'].astype(int)
+```
+
+```{python}
+sales_db.head()
+```
+
+### Save the cleaned data
+```{python}
+# sales_db.to_pickle(r'E:\_Projects\Python\1. Walmart Sales Analysis\Dataset\sales_cleaned_data.pkl')
+```
+
+## EDA
+### Load the cleaned data
+```{python}
+sales = pd.read_pickle(r'E:\_Projects\Python\1. Walmart Sales Analysis\Dataset\sales_cleaned_data.pkl')
+sales.head()
+```
+
+### Generate a summary of key metrics
+```{python}
+summary = pd.DataFrame({
+    "Metric": ["Total Revenue", "Total Invoices", "Total Sales", "mean rating","First Date", "Last Date"],
+    "Value" : [
+        f"${sales['total'].sum():,.2f}",
+        f"{sales['invoice_id'].count():,}",
+        f"{sales['quantity'].sum():,}",
+        f"{round(sales['rating'].mean(), 2)}",
+        sales['date'].min().date(),
+        sales['date'].max().date()
+    ]
+})
+
+summary
+```
+
+### Display the first 10 unique cities and count the remaining ones
+```{python}
+cities = sales['City'].unique()
+for i, city in enumerate(cities[:10], start=1):
+    print(f"{i}. {city}")
+    print("*" * 10)
+print(f"... , {len(cities)-10} Other cities")
+```
+
+### List all unique product categories with numbering
+```{python}
+for i, category in enumerate(sales['category'].unique(), start=1):
+    print(f"{i}. {category}")
+    print("*" * 10)
+```
+
+### Display the first 10 unique branches and count the remaining ones
+```{python}
+branches = sales['Branch'].unique()
+for i, branch in enumerate(branches[:10], start=1):
+    print(f"{i}. {branch}")
+    print("*" * 10)
+print(f"... , {len(branches)-10} Other Branches")
+```
+
+### List all unique payment methods with numbering
+```{python}
+for i, payment_method in enumerate(sales_db['payment_method'].unique(), start=1):
+    print(f"{i}. {payment_method}")
+    print("*" * 10)
+```
+
+\newpage
+## Data Analsis Report
+### Plot total revenue by year using a line chart with value labels and shaded area
+```{python}
+year_totals = sales.groupby('year')['total'].sum().reset_index()
+min_total = year_totals['total'].min()
+max_total = year_totals['total'].max()
+
+plt.figure(figsize=(10,6))
+
+sns.lineplot(
+    x = 'year',
+    y = 'total',
+    data = year_totals,
+    marker = 'o',
+    color = '#1f77b4'
+)
+
+plt.fill_between(
+    year_totals['year'],
+    year_totals['total'],
+    color = '#aec7e8',
+    alpha = 0.5
+)
+
+for i, row in year_totals.iterrows():
+    plt.text(
+        row['year'],
+        row['total'] + 0.01*row['total'],
+        f"{row['total']:,.0f}", 
+        ha='center', va='bottom'
+    )
+
+plt.title("Total Revenue by Year", fontsize=12, fontweight='bold', color='#333333')
+plt.xlabel("Year", fontsize=10)
+plt.ylabel("Total Revenue", fontsize=10)
+plt.xticks(year_totals['year'])
+plt.grid(True, linestyle='--', alpha=0.5)
+
+plt.ylim(min_total*0.95, max_total*1.05)
+plt.tight_layout()
+plt.show()
+```
+
+\newpage
+### Top 10 cities by total revenue
+```{python}
+top10 = sales.groupby('City')['total'].sum().sort_values(ascending=False).head(10).reset_index()
+
+plt.figure(figsize=(12,6))
+ax = sns.barplot(
+    x = 'City',
+    y = 'total',
+    data = top10,
+    hue = 'City',
+    palette = 'magma',
+    dodge = False
+)
+for p in ax.patches:
+    ax.annotate(f"{p.get_height():,.0f}", 
+                (p.get_x() + p.get_width() / 2., p.get_height()),
+                ha='center', va='bottom')
+
+plt.title("Top 10 Cities by Total Revenue")
+plt.xlabel("City")
+plt.ylabel("Total Revenue")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+\newpage
+### Top 10 Branches by total revenue
+```{python}
+top10 = sales.groupby('Branch')['total'].sum().sort_values(ascending=False).head(10).reset_index()
+
+plt.figure(figsize=(12,6))
+ax = sns.barplot(
+    x = 'Branch',
+    y = 'total',
+    data = top10,
+    hue = 'Branch',
+    palette = 'viridis',
+    dodge = False
+)
+
+for p in ax.patches:
+    ax.annotate(f"{p.get_height():,.0f}", 
+                (p.get_x() + p.get_width() / 2., p.get_height()),
+                ha='center', va='bottom')
+
+plt.title("Top 10 Branch by Total Revenue")
+plt.xlabel("Branch")
+plt.ylabel("Total Revenue")
+
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+### Categories by total revenue
+```{python}
+top10_category = sales.groupby('category')['total'].sum().sort_values(ascending=False)
+
+plt.figure(figsize=(7,6))
+explode = [0.07 if val == top10_category.min() else 0 for val in top10_category]
+
+plt.pie(
+    top10_category, 
+    labels = top10_category.index, 
+    autopct = '%1.1f%%',
+    startangle = 140,
+    colors = plt.cm.Paired.colors,
+    explode = explode
+)
+plt.title("Categories by Total Revenue")
+plt.tight_layout()
+plt.show()
+```
+
+### Payment methods by total revenue
+```{python}
+top10_payment_method = sales.groupby('payment_method')['total'].sum().sort_values(ascending=False)
+
+plt.figure(figsize=(5,5))
+explode = [0.05 if val == top10_payment_method.min() else 0 for val in top10_payment_method]
+
+plt.pie(
+    top10_payment_method.values, 
+    labels = top10_payment_method.index, 
+    autopct = '%1.1f%%',
+    startangle = 140,
+    colors = plt.cm.Paired.colors,
+    explode = explode
+)
+
+plt.title("Payment Methods by Total Revenue")
+plt.tight_layout()
+plt.show()
+```
