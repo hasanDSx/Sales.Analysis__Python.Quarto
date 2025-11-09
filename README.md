@@ -10,6 +10,7 @@ Developed a comprehensive sales analysis report that:
 
  • Generates a professional PDF report with automated charts and summaries
 
+---
 
 Insights Included:
 
